@@ -1,4 +1,6 @@
-use neovim_lib::{Neovim, NeovimApi, Session};
+pub mod neovim;
+use neovim::Session;
+
 use ratatui::{
     crossterm::event::{self, KeyCode, KeyEventKind},
     style::Stylize,
@@ -19,16 +21,16 @@ fn main() {
 }
 
 fn plug(addr: String) {
-    let mut session = Session::new_tcp(&addr).unwrap();
-    session.start_event_loop();
-    let mut nvim = Neovim::new(session);
-    let _ = start_plug(&mut nvim);
+    let mut nvim = Session::connect(&addr).expect("Couldn't connect");
+    start_plug(&mut nvim).expect("Error in plugin during runtime.");
 }
 
-fn start_plug(nvim: &mut Neovim) -> io::Result<()> {
+fn start_plug(nvim: &mut Session) -> io::Result<()> {
     let mut terminal = ratatui::init();
     terminal.clear()?;
-    let mut mode;
+    let mut mode = nvim
+        .get_current_mode()
+        .expect("Couldn't fetch current neovim mode");
     let mut batch = String::new();
 
     loop {
@@ -41,25 +43,55 @@ fn start_plug(nvim: &mut Neovim) -> io::Result<()> {
         if event::poll(Duration::from_millis(FRAME_TIME.try_into().unwrap())).unwrap() {
             if let event::Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
-                    mode = get_current_mode(nvim);
                     if let KeyCode::Char(ch) = key.code {
-                        if ch == '₹' {
-                            break;
+                        let mut fallthrough = false;
+                        match ch {
+                            '₹' => break,
+                            'i' => {
+                                if mode != "i" {
+                                    mode = "i".to_string()
+                                } else {
+                                    fallthrough = true;
+                                }
+                            }
+                            'v' => {
+                                if mode != "i" {
+                                    mode = "x".to_string()
+                                } else {
+                                    fallthrough = true;
+                                }
+                            }
+                            't' => {
+                                if mode != "i" {
+                                    mode = "t".to_string()
+                                } else {
+                                    fallthrough = true;
+                                }
+                            }
+                            _ => {
+                                fallthrough = true;
+                            }
                         }
-                        batch += &ch.to_string();
-                        if batch.len() > BUFF_SIZE {
-                            feed_batch(nvim, &batch, &mode);
-                            batch.clear();
+                        if fallthrough {
+                            batch += &ch.to_string();
+                            if batch.len() > BUFF_SIZE {
+                                feed_batch(nvim, &batch, &mode);
+                                batch.clear();
+                            }
                         }
                     }
                     match key.code {
                         KeyCode::Enter => {
                             feed_batch(nvim, &batch, &mode);
-                            feed_enter_key(nvim, &mode);
+                            feedkey(nvim, &mode, "\n");
                         }
                         KeyCode::Esc => {
                             feed_batch(nvim, &batch, &mode);
-                            feed_escape_key(nvim, &mode);
+                            feedkey(nvim, &mode, "\x1b");
+                        }
+                        KeyCode::Backspace => {
+                            feed_batch(nvim, &batch, &mode);
+                            feedkey(nvim, &mode, "\x08");
                         }
                         _ => continue,
                     }
@@ -72,26 +104,10 @@ fn start_plug(nvim: &mut Neovim) -> io::Result<()> {
     Ok(())
 }
 
-fn feed_batch(nvim: &mut Neovim, batch: &str, mode: &str) {
-    let _ = nvim.feedkeys(batch, mode, false);
+fn feed_batch(nvim: &mut Session, batch: &str, mode: &str) {
+    let _ = nvim.feedkeys(batch, mode);
 }
 
-fn feed_enter_key(nvim: &mut Neovim, mode: &str) {
-    while nvim.feedkeys("\n", mode, true).is_err() {}
-}
-
-fn feed_escape_key(nvim: &mut Neovim, mode: &str) {
-    while nvim.feedkeys("\x1b", mode, true).is_err() {}
-}
-
-fn get_current_mode(nvim: &mut Neovim) -> String {
-    if let Ok(mode_info) = nvim.get_mode() {
-        mode_info
-            .iter()
-            .find(|(key, _)| key.as_str().unwrap() == "mode")
-            .map(|(_, value)| value.as_str().unwrap().to_string())
-            .unwrap_or_default()
-    } else {
-        get_current_mode(nvim)
-    }
+fn feedkey(nvim: &mut Session, mode: &str, key: &str) {
+    while nvim.feedkeys(key, mode).is_err() {}
 }
