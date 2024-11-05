@@ -93,6 +93,15 @@ fn start_plug(nvim: &mut Session) -> io::Result<()> {
                             feed_batch(nvim, &batch, &mode);
                             feedkey(nvim, &mode, "\x08");
                         }
+                        KeyCode::Tab => {
+                            feed_batch(nvim, &batch, &mode);
+                            feedkey(nvim, &mode, "\t");
+                        }
+
+                        KeyCode::Delete => {
+                            feed_batch(nvim, &batch, &mode);
+                            feedkey(nvim, &mode, "\x1b[3~");
+                        }
                         _ => continue,
                     }
                 }
