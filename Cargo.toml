@@ -1,0 +1,10 @@
+[package]
+name = "tsunagu"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+#neovim-lib = "0.6.1"
+neovim-lib = { git = "https://github.com/lemonbrass/neovim-lib-patch.git" }
+ratatui = "0.29.0"
+
