@@ -11,10 +11,10 @@ cargo install --path .
 
 ## Usage
 - Run neovim instance on another machine with this:
-```sh nvim --listen ipaddr:6666 ```
+```nvim --listen ipaddr:6666 ```
 - get ipaddr using your device settings, it is recommended to use static instad of DHCP ip 
 - Connect to the instance using tsunagu
-```sh tsunagu ipaddr:6666 ```
+```tsunagu ipaddr:6666 ```
 - and you will be presented with a grey screen, press any key and it gets redirected to neovim instance.
 
 ##### To exit, press '₹' key.
