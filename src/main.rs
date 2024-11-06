@@ -1,5 +1,6 @@
 pub mod keybinds;
 pub mod neovim;
+pub mod timer;
 use keybinds::KeyListener;
 use neovim::Session;
 
@@ -18,7 +19,7 @@ fn main() {
 }
 
 fn start_plug(addr: String) -> io::Result<()> {
-    let nvim = Session::connect(&addr).expect("Couldn't connect");
+    let nvim = Session::connect(&addr);
     let mut terminal = ratatui::init();
     let mut keylistener = KeyListener::new(nvim);
     terminal.clear()?;
