@@ -41,6 +41,18 @@ impl KeyListener {
             KeyCode::Tab => {
                 self.nvim.feedkeys("\t", &self.mode);
             }
+            KeyCode::Left => {
+                self.nvim.feedkeys("h", &self.mode);
+            }
+            KeyCode::Right => {
+                self.nvim.feedkeys("l", &self.mode);
+            }
+            KeyCode::Up => {
+                self.nvim.feedkeys("k", &self.mode);
+            }
+            KeyCode::Down => {
+                self.nvim.feedkeys("j", &self.mode);
+            }
             KeyCode::Char(ch) => {
                 if ch == '₹' {
                     return true; // exit
