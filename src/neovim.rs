@@ -63,7 +63,7 @@ impl Session {
         self.stream.write_all(&buf)?;
 
         let mut response_buf = [0u8; 65535];
-        let mut n = self.stream.read(&mut response_buf)?;
+        let n = self.stream.read(&mut response_buf)?;
         let response = rmpv::decode::read_value(&mut &response_buf[..n])?;
 
         if let Value::Array(items) = response {
@@ -92,6 +92,14 @@ impl Session {
             io::ErrorKind::InvalidData,
             "Invalid response format",
         ))
+    }
+
+    pub fn get_keybinds_try(&mut self, mode: &str) -> Value {
+        let mut keybinds = self.get_all_keybinds(mode);
+        while keybinds.is_err() {
+            keybinds = self.get_all_keybinds(mode);
+        }
+        keybinds.unwrap()
     }
 
     pub fn get_all_keybinds(&mut self, mode: &str) -> io::Result<Value> {

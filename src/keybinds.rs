@@ -1,5 +1,5 @@
 use ratatui::crossterm::event::KeyCode;
-//use rmpv::Value;
+use rmpv::Value;
 
 use crate::neovim::Session;
 
@@ -7,7 +7,7 @@ pub struct KeyListener {
     buffer: String,
     nvim: Session,
     mode: String,
-    //keybinds: Value,
+    keybinds: Value,
 }
 
 impl KeyListener {
@@ -15,10 +15,7 @@ impl KeyListener {
         let mode = nvim.get_current_mode().expect("Couldnt get currrent mode");
         KeyListener {
             buffer: "".to_string(),
-            /*keybinds: nvim
-            .get_all_keybinds(&mode)
-            .expect("Couldnt get all keybinds"),
-            */
+            keybinds: nvim.get_keybinds_try(&mode),
             mode,
             nvim,
         }
@@ -66,6 +63,7 @@ impl KeyListener {
     }
 
     pub fn send_key(&mut self, key: char) {
+        println!("{:#?}", self.keybinds);
         self.nvim.feedkeys_try(&key.to_string(), &self.mode);
     }
 }
