@@ -5,6 +5,7 @@ use std::io::Read;
 use std::io::Write;
 use std::net::TcpStream;
 
+#[derive(Debug)]
 pub struct Session {
     stream: TcpStream,
     message_id: u32,
@@ -17,6 +18,18 @@ impl Session {
             stream,
             message_id: 0,
         })
+    }
+
+    pub fn feedkeys_try(&mut self, keys: &str, mode: &str) {
+        while self.feedkeys(keys, mode).is_err() {}
+    }
+
+    pub fn get_mode_try(&mut self) -> String {
+        let mut mode = self.get_current_mode();
+        while mode.is_err() {
+            mode = self.get_current_mode();
+        }
+        return mode.unwrap();
     }
 
     pub fn feedkeys(&mut self, keys: &str, mode: &str) -> io::Result<()> {
@@ -49,14 +62,9 @@ impl Session {
         encode::write_value(&mut buf, &request)?;
         self.stream.write_all(&buf)?;
 
-        let mut response_buf = [0u8; 4096];
-        let mut n = self.stream.read(&mut response_buf);
-        while n.is_err() {
-            n = self.stream.read(&mut response_buf);
-        }
-        let response = rmpv::decode::read_value(&mut &response_buf[..n.unwrap()]).unwrap();
-
-        println!("{:?}", response);
+        let mut response_buf = [0u8; 65535];
+        let mut n = self.stream.read(&mut response_buf)?;
+        let response = rmpv::decode::read_value(&mut &response_buf[..n])?;
 
         if let Value::Array(items) = response {
             if items.len() == 4 {
@@ -77,6 +85,44 @@ impl Session {
                         return Ok(mode.to_string());
                     }
                 }
+            }
+        }
+
+        Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Invalid response format",
+        ))
+    }
+
+    pub fn get_all_keybinds(&mut self, mode: &str) -> io::Result<Value> {
+        let request = Value::Array(vec![
+            Value::from(0),
+            Value::from(self.next_message_id()),
+            Value::from("nvim_get_keymap"),
+            Value::Array(vec![Value::from(mode)]),
+        ]);
+
+        let mut buf = Vec::new();
+        encode::write_value(&mut buf, &request)?;
+        self.stream.write_all(&buf)?;
+
+        let mut response_buf = [0u8; 65535];
+        let n = self.stream.read(&mut response_buf)?;
+        let response = rmpv::decode::read_value(&mut &response_buf[..n])?;
+
+        if let Value::Array(items) = response {
+            if items.len() == 4 {
+                let error = &items[2];
+                let result = &items[3];
+
+                if !error.is_nil() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        format!("Error from Neovim: {:?}", error),
+                    ));
+                }
+
+                return Ok(result.clone());
             }
         }
 
