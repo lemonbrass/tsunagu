@@ -26,17 +26,19 @@ impl EventLoop {
     }
 
     pub fn update(&mut self) -> bool {
+        self.terminal.draw(|f| self.ui.render_ui(f)).unwrap();
+
         if event::poll(Duration::from_millis(FRAME_TIME)).unwrap() {
             if let event::Event::Key(key) = event::read().unwrap() {
                 if key.kind == KeyEventKind::Press {
                     if self.keylistener.listen(key.code) {
                         return true;
                     }
+                    self.ui.update(key.code);
                 }
             }
         }
 
-        self.terminal.draw(|f| self.ui.render_ui(f)).unwrap();
         false
     }
 
