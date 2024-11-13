@@ -1,0 +1,12 @@
+[package]
+name = "tsunagu"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ratatui = "0.29.0"
+rmp = "0.8.14"
+rmp-serde = "1.3.0"
+rmpv = "1.3.0"
+serde = "1.0.214"
+utilcro = { path = "../utilcro" }

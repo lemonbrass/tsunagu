@@ -13,8 +13,9 @@ pub struct KeyListener {
 }
 
 impl KeyListener {
-    pub fn new(mut nvim: Session) -> KeyListener {
-        let mode = nvim.get_current_mode();
+    pub fn new(addr: String) -> KeyListener {
+        let mut nvim = Session::connect(&addr);
+        let mode = nvim.get_current_mode().unwrap();
         KeyListener {
             //            timer: None,
             //            buffer: "".to_string(),
@@ -70,7 +71,7 @@ impl KeyListener {
     }
 
     fn update_mode(&mut self) {
-        self.mode = self.nvim.get_current_mode();
+        self.mode = self.nvim.get_current_mode().unwrap();
     }
 
     pub fn send_key(&mut self, key: char) {

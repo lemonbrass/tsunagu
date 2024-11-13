@@ -1,6 +1,8 @@
 use rmpv::{encode, Value};
 use std::io::{Read, Write};
 use std::net::TcpStream;
+use std::time::Duration;
+use utilcro::{retry, retry_optional};
 
 #[derive(Debug, Clone)]
 pub struct Keybind {
@@ -19,31 +21,41 @@ pub struct Session {
 impl Session {
     pub fn connect(address: &str) -> Self {
         let stream = TcpStream::connect(address).expect("Failed to connect");
+        //stream.set_nodelay(true).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
         Self {
             stream,
             message_id: 0,
         }
     }
 
-    pub fn get_all_keybinds(&mut self, mode: &str) -> Vec<Keybind> {
-        loop {
-            let request = self.build_request("nvim_get_keymap", vec![Value::from(mode)]);
-            if let Some(response) = self.send_request(request) {
-                if let Some(keybinds) = self.parse_keybinds(response, mode) {
-                    return keybinds;
-                }
+    #[retry(25)]
+    pub fn get_all_keybinds(&mut self, mode: &str) -> Result<Vec<Keybind>, String> {
+        let request = self.build_request("nvim_get_keymap", vec![Value::from(mode)]);
+        if let Some(response) = self.send_request(request) {
+            if let Some(keybinds) = self.parse_keybinds(response, mode) {
+                return Ok(keybinds);
+            } else {
+                return Err("Couldnt parse keybinds".to_string());
             }
+        } else {
+            return Err("Couldnt fetch keybinds".to_string());
         }
     }
 
-    pub fn get_current_mode(&mut self) -> String {
-        loop {
-            let request = self.build_request("nvim_get_mode", vec![]);
-            if let Some(response) = self.send_request(request) {
-                if let Some(mode) = self.parse_mode(response) {
-                    return mode;
-                }
+    #[retry(25)]
+    pub fn get_current_mode(&mut self) -> Result<String, String> {
+        let request = self.build_request("nvim_get_mode", vec![]);
+        if let Some(response) = self.send_request(request) {
+            if let Some(mode) = self.parse_mode(response) {
+                return Ok(mode);
+            } else {
+                return Err("Couldnt parse mode".to_string());
             }
+        } else {
+            return Err("Couldnt fetch mode".to_string());
         }
     }
 
@@ -70,18 +82,50 @@ impl Session {
         ])
     }
 
+    #[retry_optional(25)]
+    // fn send_request(&mut self, request: Value) -> Option<Value> {
+    //     let mut buf = Vec::new();
+    //     if encode::write_value(&mut buf, &request).is_ok() && self.stream.write_all(&buf).is_ok() {
+    //         let mut response_buf = [0u8; 65535];
+    //         if let Ok(n) = self.stream.read(&mut response_buf) {
+    //             if n <= 0 {
+    //                 panic!("Connection Aborted");
+    //             }
+    //             if let Ok(response) = rmpv::decode::read_value(&mut &response_buf[..n]) {
+    //                 return Some(response);
+    //             } else {
+    //                 return None;
+    //             }
+    //         } else {
+    //             return None;
+    //         }
+    //     } else {
+    //         return None;
+    //     }
+    // }
     fn send_request(&mut self, request: Value) -> Option<Value> {
-        loop {
-            let mut buf = Vec::new();
-            if encode::write_value(&mut buf, &request).is_ok()
-                && self.stream.write_all(&buf).is_ok()
-            {
-                let mut response_buf = [0u8; 65535];
-                if let Ok(n) = self.stream.read(&mut response_buf) {
-                    if let Ok(response) = rmpv::decode::read_value(&mut &response_buf[..n]) {
-                        return Some(response);
-                    }
+        let mut buf = Vec::new();
+        if encode::write_value(&mut buf, &request).is_err() || self.stream.write_all(&buf).is_err()
+        {
+            return None;
+        }
+
+        let mut response_buf = [0u8; 4096];
+
+        match self.stream.read(&mut response_buf) {
+            Ok(_) if !response_buf.is_empty() => {
+                if let Ok(response) = rmpv::decode::read_value(&mut &response_buf[..]) {
+                    return Some(response);
                 }
+                None
+            }
+            Ok(_) => {
+                eprintln!("Connection closed with no data");
+                None
+            }
+            Err(e) => {
+                eprintln!("Read error: {:?}", e);
+                None
             }
         }
     }

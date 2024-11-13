@@ -1,11 +1,11 @@
 pub mod keybinds;
 pub mod neovim;
 pub mod timer;
+pub mod ui;
 use keybinds::KeyListener;
-use neovim::Session;
 
 use ratatui::crossterm::event::{self, KeyEventKind};
-use std::{env, io, thread, time::Duration};
+use std::{env, io, time::Duration};
 
 const FPS: usize = 60;
 const FRAME_TIME: usize = 1000 / FPS;
@@ -19,14 +19,10 @@ fn main() {
 }
 
 fn start_plug(addr: String) -> io::Result<()> {
-    let nvim = Session::connect(&addr);
+    let mut keylistener = KeyListener::new(addr);
     let mut terminal = ratatui::init();
-    let mut keylistener = KeyListener::new(nvim);
     terminal.clear()?;
     loop {
-        thread::sleep(Duration::from_millis(FRAME_TIME.try_into().unwrap()));
-        terminal.draw(|_frame| {})?;
-
         if event::poll(Duration::from_millis(FRAME_TIME.try_into().unwrap())).unwrap() {
             if let event::Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
