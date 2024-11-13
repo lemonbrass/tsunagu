@@ -1,7 +1,6 @@
 pub mod eventloop;
 pub mod keybinds;
 pub mod neovim;
-pub mod timer;
 pub mod ui;
 use eventloop::EventLoop;
 use std::env;
