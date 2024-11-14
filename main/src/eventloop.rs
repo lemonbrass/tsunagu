@@ -5,7 +5,8 @@ use ratatui::{prelude::CrosstermBackend, Terminal};
 use std::io::Stdout;
 use std::time::Duration;
 
-const FRAME_TIME: u64 = 1000 / 60;
+type ShouldExit = bool;
+const FRAME_TIME: u64 = 1000 / 30;
 
 pub struct EventLoop {
     ui: UI,
@@ -25,7 +26,7 @@ impl EventLoop {
         }
     }
 
-    pub fn update(&mut self) -> bool {
+    pub fn update(&mut self) -> ShouldExit {
         self.terminal.draw(|f| self.ui.render_ui(f)).unwrap();
 
         if event::poll(Duration::from_millis(FRAME_TIME)).unwrap() {
